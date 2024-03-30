@@ -42,7 +42,13 @@ func main() {
 			os.Exit(1)
 		}
 
-		path := os.Args[3]
+		cwd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot get current work directory %s\n", err)
+			os.Exit(1)
+		}
+
+		path := cwd + "/.git/objects/" + os.Args[3][0:2] + "/" + os.Args[3][2:]
 
 		b, err := ioutil.ReadFile(path)
 
