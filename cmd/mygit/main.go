@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 // Usage: your_git.sh <command> <arg1> <arg2> ...
@@ -36,7 +37,7 @@ func main() {
 		fmt.Println("Initialized git directory")
 
 	case "cat-file":
-		if len(os.Args) < 4 {
+		if len(os.Args) != 4 || os.Args[2] != "-p" {
 			fmt.Fprintf(os.Stderr, "usage: mygit cat-file -p [path-file]\n")
 			os.Exit(1)
 		}
@@ -47,12 +48,14 @@ func main() {
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading file %s\n", err)
+			os.Exit(1)
 		}
 
 		r, err := zlib.NewReader(bytes.NewReader(b))
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading uncompressed data %s\n", err)
+			os.Exit(1)
 		}
 		defer r.Close()
 
@@ -62,8 +65,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error reading decompressed data %s\n", err)
 		}
 
-		fmt.Print(decompressedData)
-
+		content := decompressedData[strings.IndexByte(string(decompressedData), 0)+1:]
+		fmt.Printf("%s", content)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
 		os.Exit(1)
