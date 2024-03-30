@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"compress/zlib"
 	"fmt"
-	// Uncomment this block to pass the first stage!
+	"io/ioutil"
 	"os"
 )
 
@@ -32,6 +34,35 @@ func main() {
 		}
 
 		fmt.Println("Initialized git directory")
+
+	case "cat-file":
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "usage: mygit cat-file [path-file]\n")
+			os.Exit(1)
+		}
+
+		path := os.Args[2]
+
+		b, err := ioutil.ReadFile(path)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading file %s\n", err)
+		}
+
+		r, err := zlib.NewReader(bytes.NewReader(b))
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading uncompressed data %s\n", err)
+		}
+		defer r.Close()
+
+		decompressedData, err := ioutil.ReadAll(r)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading decompressed data %s\n", err)
+		}
+
+		fmt.Print(decompressedData)
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
