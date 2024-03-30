@@ -3,9 +3,12 @@ package main
 import (
 	"bytes"
 	"compress/zlib"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -36,13 +39,13 @@ func main() {
 			os.Exit(1)
 		}
 
-		cwd, err := os.Getwd()
+		gitObjPath, err := GetGitObjectPath()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot get current work directory %s\n", err)
+			fmt.Fprintf(os.Stderr, "Cannot get git object path %s\n", err)
 			os.Exit(1)
 		}
 
-		path := cwd + "/.git/objects/" + os.Args[3][0:2] + "/" + os.Args[3][2:]
+		path := gitObjPath + os.Args[3][0:2] + "/" + os.Args[3][2:]
 
 		b, err := ioutil.ReadFile(path)
 
@@ -67,8 +70,82 @@ func main() {
 
 		content := decompressedData[strings.IndexByte(string(decompressedData), 0)+1:]
 		fmt.Printf("%s", content)
+
+	case "hash-object":
+		if len(os.Args) != 4 || os.Args[2] != "-w" {
+			fmt.Fprintf(os.Stderr, "usage: mygit hash-object -w [path-file]\n")
+			os.Exit(1)
+		}
+
+		inputPath := os.Args[3]
+
+		filename := filepath.Base(inputPath)
+
+		hasher := sha1.New()
+		hasher.Write([]byte(filename))
+		sha := hex.EncodeToString(hasher.Sum((nil)))
+
+		gitObjPath, err := GetGitObjectPath()
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot get git object path %s\n", err)
+			os.Exit(1)
+		}
+
+		targetPath := gitObjPath + sha[:2] + "/" + sha[2:]
+		targetFolderPath := ".git/objects/" + sha[:2]
+
+		if !DirExists(targetFolderPath) {
+			if err := os.Mkdir(targetFolderPath, os.ModePerm); err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to create folder with filepath: %s \n", err)
+				os.Exit(1)
+			}
+		}
+
+		data, err := os.ReadFile(inputPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot read file: %s\n", err)
+			os.Exit(1)
+		}
+		dataToHash := fmt.Sprintf("blob %d\x00%s", len(data), data)
+
+		outputFile, err := os.Create(targetPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot create a file: %s\n", err)
+			os.Exit(1)
+		}
+		defer outputFile.Close()
+
+		zlibWriter := zlib.NewWriter(outputFile)
+		defer zlibWriter.Close()
+
+		_, err = zlibWriter.Write([]byte(dataToHash))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot write to file: %s \n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("%s", sha)
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
 		os.Exit(1)
 	}
+}
+
+func GetGitObjectPath() (string, error) {
+	cwd, err := os.Getwd()
+
+	return cwd + "/.git/objects/", err
+}
+
+func DirExists(dirPath string) bool {
+	info, err := os.Stat(dirPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false // Directory does not exist
+		}
+		return false // Some other error, treat as not existing for simplicity
+	}
+	return info.IsDir() // Check if the path is indeed a directory
 }
