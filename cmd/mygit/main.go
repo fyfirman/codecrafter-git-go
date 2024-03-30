@@ -36,12 +36,12 @@ func main() {
 		fmt.Println("Initialized git directory")
 
 	case "cat-file":
-		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "usage: mygit cat-file [path-file]\n")
+		if len(os.Args) < 4 {
+			fmt.Fprintf(os.Stderr, "usage: mygit cat-file -p [path-file]\n")
 			os.Exit(1)
 		}
 
-		path := os.Args[2]
+		path := os.Args[3]
 
 		b, err := ioutil.ReadFile(path)
 
